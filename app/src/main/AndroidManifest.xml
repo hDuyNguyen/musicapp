@@ -28,7 +28,7 @@
             android:exported="true"
             android:theme="@style/Theme.Musicplayer">
         </activity>
-        <activity android:name=".ui.PLayerActivity"
+        <activity android:name=".ui.PlayerActivity"
             android:exported="true"
             android:theme="@style/Theme.Musicplayer">
         </activity>

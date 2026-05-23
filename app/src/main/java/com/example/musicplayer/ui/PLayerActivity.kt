@@ -1,78 +1,82 @@
 package com.example.musicplayer.ui
 
-
-import android.os.Build
+import android.annotation.SuppressLint
+import android.content.ComponentName
+import android.content.Intent
+import android.content.ServiceConnection
 import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
+import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
-import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import com.example.musicplayer.R
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.musicplayer.model.Song
-import com.example.musicplayer.ui.components.BackgroundBlurImage
-import com.example.musicplayer.ui.components.MarqueeText
-import com.example.musicplayer.ui.components.PlayerControlBar
+import com.example.musicplayer.service.MusicService
+import com.example.musicplayer.ui.components.ControlBar
+import com.example.musicplayer.ui.components.InteractionBar
+import com.example.musicplayer.ui.components.PlayerTopBar
 import com.example.musicplayer.ui.components.SliderBar
-import com.example.musicplayer.utils.MusicUtils.formatTime
-import com.example.musicplayer.utils.MusicUtils.getAlbumArtUri
 import com.example.musicplayer.viewmodel.PlayerViewModel
+import com.example.musicplayer.R
 
-class PLayerActivity : ComponentActivity() {
-    private var currentPosition: Int = 0
+class PlayerActivity : ComponentActivity() {
 
-    private val playerViewModel: PlayerViewModel by viewModels()
+    private var musicService: MusicService? = null
+    private var isBound = false
+    private lateinit var playerViewModel: PlayerViewModel
 
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as MusicService.MusicBinder
+            musicService = binder.getService()
+            isBound = true
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+            playerViewModel.setService(binder.getService())
+
+            // Lấy data từ intent và cập nhật danh sách phát vào service
+            val songs = intent.getParcelableArrayListExtra<Song>("listSong")?.toList() ?: emptyList()
+            val position = intent.getIntExtra("position", 0)
+
+            if (songs.isNotEmpty()) {
+                musicService?.setPlaylist(songs, position)
+            }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            isBound = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
 
-        val songs =
-            (intent.getParcelableExtra("songList", ArrayList::class.java) as? ArrayList<Song>)
-                ?: emptyList()
-        currentPosition = intent.getIntExtra("position", 0)
-
-        if (songs.isEmpty() || currentPosition < 0 || currentPosition >= songs.size) {
-            Toast.makeText(this, "No song to play", Toast.LENGTH_SHORT).show()
-            finish() // Close the activity if there's an issue
-            return
-        }
-        playerViewModel.setupPlayer(songs, currentPosition)
+        // Start and Bind Foreground Service
+        val intentService = Intent(this, MusicService::class.java)
+        startService(intentService)
+        bindService(intentService, serviceConnection, BIND_AUTO_CREATE)
 
         setContent {
+            playerViewModel = viewModel()
+            val currentSong by playerViewModel.currentSong.collectAsState()
+            val isPlaying by playerViewModel.isPlaying.collectAsState()
+            val currentPos by playerViewModel.currentPosition.collectAsState()
+
             MaterialTheme {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    BackgroundBlurImage(songs[currentPosition].albumId)
-                }
                 PlayerScreen(
-                    song = songs[currentPosition],
+                    song = currentSong,
+                    isPlaying = isPlaying,
+                    currentPos = currentPos,
                     viewModel = playerViewModel,
                     onBack = { finish() }
                 )
@@ -80,108 +84,97 @@ class PLayerActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    fun PlayerScreen(song: Song, viewModel: PlayerViewModel, onBack: () -> Unit) {
-        val isPlaying by viewModel.isPlaying.collectAsState()
-        val currentPos by viewModel.currentPosition.collectAsState()
-        val isFavourite by viewModel.isFavourite.collectAsState()
-        val isShuffle by viewModel.isShuffle.collectAsState()
-        val repeatMode by viewModel.repeatMode.collectAsState()
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isBound) {
+            unbindService(serviceConnection)
+            isBound = false
+        }
+    }
+}
 
+@Composable
+fun PlayerScreen(
+    song: Song?,
+    isPlaying: Boolean,
+    currentPos: Long,
+    viewModel: PlayerViewModel,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            PlayerTopBar(
+                title = song?.title ?: "Unknown Title",
+                artist = song?.artist ?: "Unknown Artist",
+                onBackClick = onBack,
+                onMenuClick = {}
+            )
+        }
+    ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // TopBar Custom
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        painterResource(R.drawable.back_icon),
-                        null,
-                        tint = Color.Unspecified
-                    )
-                }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    MarqueeText(song.title ?: "", color = Color.White)
-                    Text(
-                        song.artist ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                }
-                IconButton(onClick = {}) {
-                    Icon(
-                        painterResource(R.drawable.menu_icon),
-                        null,
-                        tint = Color.Unspecified
-                    )
-                }
+            // Album Art Placeholder Content
+            Box(
+                modifier = Modifier
+                    .size(280.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.LightGray),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(R.drawable.music_icon),
+                    contentDescription = "Placeholder Album Art",
+                    modifier = Modifier.size(120.dp),
+                    tint = Color.DarkGray
+                )
             }
 
-            // Content
-            AsyncImage(
-                model = getAlbumArtUri(song.albumId),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .padding(24.dp)
-                    .clip(RoundedCornerShape(200.dp)),
-                placeholder = painterResource(R.drawable.music_icon)
+            // Interactions Bar
+            InteractionBar(
+                isFavourite = viewModel.isFavourite,
+                onFavClick = { song?.let { viewModel.toggleFavourite(it) } },
+                onAddClick = {},
+                onDownloadClick = {},
+                onShareClick = {},
+                onMoreClick = {}
             )
 
-            // InteractionBar
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                IconButton(onClick = { viewModel.toggleFavourite() }) {
-                    Icon(
-                        painterResource(if (isFavourite) R.drawable.favourite_selected_icon else R.drawable.favourite_icon),
-                        null, tint = Color.Unspecified
-                    )
-                }
-                IconButton(onClick = { viewModel }) {
-                    Icon(
-                        painterResource(R.drawable.list_add_icon),
-                        null,
-                        tint = Color.Unspecified
-                    )
-                }
-                IconButton(onClick = { viewModel }) {
-                    Icon(
-                        painterResource(R.drawable.download_icon),
-                        null,
-                        tint = Color.Unspecified
-                    )
-                }
-                IconButton(onClick = { viewModel }) {
-                    Icon(
-                        painterResource(R.drawable.menu_icon),
-                        null,
-                        tint = Color.Unspecified
-                    )
-                }
-            }
+            // Slider progress bar
+            SliderBar(
+                currentPos = currentPos,
+                duration = song?.duration ?: 0L,
+                onValueChange = { viewModel.seekTo(it) }
+            )
 
-            // SliderBar
-            SliderBar(viewModel)
-
-            // ControlBar
-            PlayerControlBar(
+            // Control Buttons
+            ControlBar(
                 isPlaying = isPlaying,
-                isShuffle = isShuffle, // Connect to state
-                repeatMode = repeatMode,    // Connect to state
-                onShuffle = { viewModel.toggleShuffle() },
-                onPrev = { viewModel.previous() },
-                onToggle = { viewModel.togglePlayPause() },
-                onNext = { viewModel.next() },
-                onRepeat = { viewModel.toggleRepeat() }
+                isShuffle = viewModel.isShuffle,
+                isRepeat = viewModel.isRepeat,
+                onShuffleClick = { viewModel.toggleShuffle() },
+                onPreviousClick = { viewModel.previousSong() },
+                onPlayPauseClick = { viewModel.togglePlayPause() },
+                onNextClick = { viewModel.nextSong() },
+                onRepeatClick = { viewModel.toggleRepeat() }
             )
         }
     }
+}
 
-    override fun onDestroy() {
-        super.onDestroy()
-        Log.d("duy", "onDestroy PlayerActivity")
-        playerViewModel.clearPlayer()
+@SuppressLint("ViewModelConstructorInComposable")
+@Preview(showBackground = true)
+@Composable
+fun PlayerPreview() {
+    MaterialTheme {
+        PlayerScreen(
+            song = Song(1, "Bài hát demo", "Ca sĩ nghệ sĩ", 1L, "", 240000L),
+            isPlaying = true,
+            currentPos = 60000L,
+            viewModel = PlayerViewModel(),
+            onBack = {}
+        )
     }
 }
