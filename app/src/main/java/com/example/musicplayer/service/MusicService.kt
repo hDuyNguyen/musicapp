@@ -194,4 +194,27 @@ class MusicService : Service() {
         exoPlayerInstance?.release()
         exoPlayerInstance = null
     }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+
+        // 1. Dừng tracker thời gian SeekBar
+        stopProgressTracker()
+
+        // 2. Dừng phát nhạc và giải phóng ExoPlayer an toàn
+        exoPlayerInstance?.apply {
+            stop()
+            release()
+        }
+        exoPlayerInstance = null
+
+        // 3. Xóa bỏ trạng thái Foreground Notification khỏi thanh thông báo
+        stopForeground(STOP_FOREGROUND_REMOVE)
+
+        // 4. Hủy bỏ toàn bộ Coroutine Job đang chạy ngầm trong Service
+        serviceScope.cancel()
+
+        // 5. Kết thúc hoàn toàn Service hiện tại
+        stopSelf()
+    }
 }
