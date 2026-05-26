@@ -1,5 +1,6 @@
 package com.example.musicplayer.ui.components
 
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +18,14 @@ fun PlayerTopBar(title: String, artist: String, onBackClick: () -> Unit, onMenuC
         title = {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 1000)
+                    )
                     Text(text = artist, style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -29,7 +37,7 @@ fun PlayerTopBar(title: String, artist: String, onBackClick: () -> Unit, onMenuC
         },
         actions = {
             IconButton(onClick = onMenuClick) {
-                Icon(painterResource(R.drawable.menu_icon   ), contentDescription = "menu_icon")
+                Icon(painterResource(R.drawable.menu_icon), contentDescription = "menu_icon")
             }
         }
     )

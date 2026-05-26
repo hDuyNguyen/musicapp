@@ -1,5 +1,6 @@
 package com.example.musicplayer.ui.components
 
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -12,16 +13,27 @@ import com.example.musicplayer.model.Song
 @Composable
 fun SongItem(song: Song, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = song.title ?: "Unknown Title", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = song.title ?: "Unknown Title",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 1000)
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = song.artist ?: "Unknown Artist", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = song.artist ?: "Unknown Artist",
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 Text(text = "Album ID: ${song.albumId}", style = MaterialTheme.typography.bodySmall)
             }
         }
