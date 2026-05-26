@@ -4,10 +4,12 @@ import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,24 +34,26 @@ import com.example.musicplayer.R
 
 class PlayerActivity : ComponentActivity() {
 
-    private var musicService: MusicService? = null
     private var isBound = false
     private lateinit var playerViewModel: PlayerViewModel
 
     private val serviceConnection = object : ServiceConnection {
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as MusicService.MusicBinder
-            musicService = binder.getService()
+            val manager = binder.getService()
             isBound = true
 
-            playerViewModel.setService(binder.getService())
+            // Đọc dữ liệu từ Intent an toàn theo Android SDK
+            val songs =
+                intent.getParcelableArrayListExtra("listSong", Song::class.java)?.toList()
+                    ?: emptyList()
 
-            // Lấy data từ intent và cập nhật danh sách phát vào service
-            val songs = intent.getParcelableArrayListExtra<Song>("listSong")?.toList() ?: emptyList()
             val position = intent.getIntExtra("position", 0)
 
+            // Đẩy xử lý danh sách trực tiếp vào Service tập trung
             if (songs.isNotEmpty()) {
-                musicService?.setPlaylist(songs, position)
+                manager.setPlaylist(songs, position)
             }
         }
 
@@ -63,7 +67,6 @@ class PlayerActivity : ComponentActivity() {
 
         // Start and Bind Foreground Service
         val intentService = Intent(this, MusicService::class.java)
-        startService(intentService)
         bindService(intentService, serviceConnection, BIND_AUTO_CREATE)
 
         setContent {

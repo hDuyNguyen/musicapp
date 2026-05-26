@@ -22,6 +22,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.musicplayer.model.Song
+import com.example.musicplayer.service.MusicService
 import com.example.musicplayer.ui.components.SongItem
 import com.example.musicplayer.viewmodel.MainViewModel
 import java.util.ArrayList
@@ -29,6 +30,14 @@ import java.util.ArrayList
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Khởi động Foreground Service ngay từ đây để giữ instance duy nhất toàn app
+        val serviceIntent = Intent(this, MusicService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
 
         // Check permission Read Audio Storage
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

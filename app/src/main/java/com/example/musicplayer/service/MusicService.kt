@@ -15,11 +15,21 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.musicplayer.model.Song
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 class MusicService : Service() {
 
     private val binder = MusicBinder()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var progressJob: Job? = null
 
     companion object {
         private var exoPlayerInstance: ExoPlayer? = null
@@ -74,31 +84,48 @@ class MusicService : Service() {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying.value = playing
+                if (playing) {
+                    startProgressTracker() // Chạy tracker an toàn bằng Coroutine khi phát nhạc
+                } else {
+                    stopProgressTracker()
+                }
             }
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) {
-                    if (player.repeatMode == Player.REPEAT_MODE_ONE) {
-                        // Tự động lặp lại theo logic ExoPlayer
-                    } else {
-                        next()
-                    }
+                    next()
                 }
-            }
-        })
-
-        // Cập nhật SeekBar Position liên tục
-        Handler(mainLooper).post(object : Runnable {
-            override fun run() {
-                if (isPlaying.value) {
-                    currentPosition.value = player.currentPosition
-                }
-                Handler(mainLooper).postDelayed(this, 1000)
             }
         })
     }
 
+    private fun startProgressTracker() {
+        stopProgressTracker() // Hủy job cũ trước khi tạo job mới, tuyệt đối không chạy song song
+        progressJob = serviceScope.launch {
+            while (isActive) {
+                if (player.isPlaying) {
+                    currentPosition.value = player.currentPosition
+                }
+                delay(1000) // Cập nhật đều đặn mỗi 1 giây
+            }
+        }
+    }
+
+    private fun stopProgressTracker() {
+        progressJob?.cancel()
+        progressJob = null
+    }
+
     fun setPlaylist(songs: List<Song>, index: Int) {
+        val targetSong = songs.getOrNull(index) ?: return
+
+        // Nếu là bài đang phát -> Chỉ cập nhật lại luồng để giao diện đồng bộ, không nạp lại nguồn phát
+        if (currentPlayingSong.value?.id == targetSong.id) {
+            currentPlayingSong.value = null
+            currentPlayingSong.value = targetSong
+            return
+        }
+
         originalList = songs
         currentList = songs
         currentIndex = index
@@ -162,7 +189,8 @@ class MusicService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Giải phóng tài nguyên khi toàn bộ ứng dụng bị kill hoàn toàn
+        stopProgressTracker()
+        serviceScope.cancel() // Giải phóng toàn bộ coroutines chạy ngầm
         exoPlayerInstance?.release()
         exoPlayerInstance = null
     }
