@@ -18,11 +18,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.example.musicplayer.helper.AudioHelper
 import com.example.musicplayer.model.Song
 import com.example.musicplayer.service.MusicService
 import com.example.musicplayer.ui.components.ControlBar
@@ -111,65 +115,78 @@ fun PlayerScreen(
     val isShuffle by viewModel.isShuffle.collectAsState()
     val isRepeat by viewModel.isRepeat.collectAsState()
 
-    Scaffold(
-        topBar = {
-            PlayerTopBar(
-                title = song?.title ?: "Unknown Title",
-                artist = song?.artist ?: "Unknown Artist",
-                onBackClick = onBack,
-                onMenuClick = {}
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Album Art Placeholder Content
-            Box(
-                modifier = Modifier
-                    .size(280.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.LightGray),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painterResource(R.drawable.music_icon),
-                    contentDescription = "Placeholder Album Art",
-                    modifier = Modifier.size(120.dp),
-                    tint = Color.DarkGray
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Blurred album art background, dimmed so foreground text/controls stay readable
+        AsyncImage(
+            model = song?.let { AudioHelper.getAlbumArtUri(it.albumId) },
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            error = painterResource(R.drawable.music_icon),
+            fallback = painterResource(R.drawable.music_icon),
+            modifier = Modifier
+                .fillMaxSize()
+                .blur(32.dp)
+        )
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                PlayerTopBar(
+                    title = song?.title ?: "Unknown Title",
+                    artist = song?.artist ?: "Unknown Artist",
+                    onBackClick = onBack,
+                    onMenuClick = {}
                 )
             }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Album Art
+                AsyncImage(
+                    model = song?.let { AudioHelper.getAlbumArtUri(it.albumId) },
+                    contentDescription = "Album Art",
+                    contentScale = ContentScale.Crop,
+                    error = painterResource(R.drawable.music_icon),
+                    fallback = painterResource(R.drawable.music_icon),
+                    modifier = Modifier
+                        .size(280.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.LightGray)
+                )
 
-            // Interactions Bar
-            InteractionBar(
-                isFavourite = isFavourite,
-                onFavClick = { song?.let { viewModel.toggleFavourite(it) } },
-                onAddClick = {},
-                onDownloadClick = {},
-                onShareClick = {},
-                onMoreClick = {}
-            )
+                // Interactions Bar
+                InteractionBar(
+                    isFavourite = isFavourite,
+                    onFavClick = { song?.let { viewModel.toggleFavourite(it) } },
+                    onAddClick = {},
+                    onDownloadClick = {},
+                    onShareClick = {},
+                    onMoreClick = {}
+                )
 
-            // Slider progress bar
-            SliderBar(
-                currentPos = currentPos,
-                duration = song?.duration ?: 0L,
-                onValueChange = { viewModel.seekTo(it) }
-            )
+                // Slider progress bar
+                SliderBar(
+                    currentPos = currentPos,
+                    duration = song?.duration ?: 0L,
+                    onValueChange = { viewModel.seekTo(it) }
+                )
 
-            // Control Buttons
-            ControlBar(
-                isPlaying = isPlaying,
-                isShuffle = isShuffle,
-                isRepeat = isRepeat,
-                onShuffleClick = { viewModel.toggleShuffle() },
-                onPreviousClick = { viewModel.previousSong() },
-                onPlayPauseClick = { viewModel.togglePlayPause() },
-                onNextClick = { viewModel.nextSong() },
-                onRepeatClick = { viewModel.toggleRepeat() }
-            )
+                // Control Buttons
+                ControlBar(
+                    isPlaying = isPlaying,
+                    isShuffle = isShuffle,
+                    isRepeat = isRepeat,
+                    onShuffleClick = { viewModel.toggleShuffle() },
+                    onPreviousClick = { viewModel.previousSong() },
+                    onPlayPauseClick = { viewModel.togglePlayPause() },
+                    onNextClick = { viewModel.nextSong() },
+                    onRepeatClick = { viewModel.toggleRepeat() }
+                )
+            }
         }
     }
 }

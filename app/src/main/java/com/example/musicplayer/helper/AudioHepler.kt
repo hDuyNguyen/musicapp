@@ -1,10 +1,16 @@
 package com.example.musicplayer.helper
 
+import android.content.ContentUris
 import android.content.Context
+import android.net.Uri
 import android.provider.MediaStore
 import com.example.musicplayer.model.Song
 
 object AudioHelper {
+    private val albumArtBaseUri: Uri = Uri.parse("content://media/external/audio/albumart")
+
+    fun getAlbumArtUri(albumId: Long): Uri = ContentUris.withAppendedId(albumArtBaseUri, albumId)
+
     fun getAllSongs(context: Context): List<Song> {
         val songList = mutableListOf<Song>()
         val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
