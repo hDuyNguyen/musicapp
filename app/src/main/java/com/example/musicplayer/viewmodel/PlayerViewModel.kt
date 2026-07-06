@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.musicplayer.model.Song
 import com.example.musicplayer.service.MusicService
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class PlayerViewModel : ViewModel() {
@@ -13,9 +14,12 @@ class PlayerViewModel : ViewModel() {
     private var musicService: MusicService? = null
 
     // UI States sử dụng MutableState theo yêu cầu bài toán
-    var isFavourite by mutableStateOf(false)
-    var isShuffle by mutableStateOf(false)
-    var isRepeat by mutableStateOf(false)
+    private val _isFavourite = MutableStateFlow(false)
+    val isFavourite: StateFlow<Boolean> = _isFavourite
+    private val _isShuffle = MutableStateFlow(false)
+    val isShuffle: StateFlow<Boolean> = _isShuffle
+    private val _isRepeat = MutableStateFlow(false)
+    val isRepeat: StateFlow<Boolean> = _isRepeat
 
     val currentSong: StateFlow<Song?> = MusicService.currentPlayingSong
     val isPlaying: StateFlow<Boolean> = MusicService.isPlaying
@@ -33,17 +37,17 @@ class PlayerViewModel : ViewModel() {
     fun seekTo(pos: Long) = musicService?.seekTo(pos)
 
     fun toggleFavourite(song: Song) {
-        isFavourite = !isFavourite
-        if (isFavourite) favouriteList.add(song) else favouriteList.remove(song)
+        _isFavourite.value = !_isFavourite.value
+        if (_isFavourite.value) favouriteList.add(song) else favouriteList.remove(song)
     }
 
     fun toggleShuffle() {
-        isShuffle = !isShuffle
-        musicService?.setShuffle(isShuffle)
+        _isShuffle.value = !_isShuffle.value
+        musicService?.setShuffle(_isShuffle.value)
     }
 
     fun toggleRepeat() {
-        isRepeat = !isRepeat
-        musicService?.setRepeat(isRepeat)
+        _isRepeat.value = !_isRepeat.value
+        musicService?.setRepeat(_isRepeat.value)
     }
 }

@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -22,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.musicplayer.model.Song
 import com.example.musicplayer.service.MusicService
 import com.example.musicplayer.ui.components.ControlBar
@@ -35,13 +35,16 @@ import com.example.musicplayer.R
 class PlayerActivity : ComponentActivity() {
 
     private var isBound = false
-    private lateinit var playerViewModel: PlayerViewModel
+    private val playerViewModel: PlayerViewModel by viewModels()
+    private var serviceManager by mutableStateOf<MusicService?>(null)
 
     private val serviceConnection = object : ServiceConnection {
         @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as MusicService.MusicBinder
             val manager = binder.getService()
+
+            playerViewModel.setService(manager)
             isBound = true
 
             // Đọc dữ liệu từ Intent an toàn theo Android SDK
@@ -70,7 +73,6 @@ class PlayerActivity : ComponentActivity() {
         bindService(intentService, serviceConnection, BIND_AUTO_CREATE)
 
         setContent {
-            playerViewModel = viewModel()
             val currentSong by playerViewModel.currentSong.collectAsState()
             val isPlaying by playerViewModel.isPlaying.collectAsState()
             val currentPos by playerViewModel.currentPosition.collectAsState()
@@ -104,6 +106,11 @@ fun PlayerScreen(
     viewModel: PlayerViewModel,
     onBack: () -> Unit
 ) {
+
+    val isFavourite by viewModel.isFavourite.collectAsState()
+    val isShuffle by viewModel.isShuffle.collectAsState()
+    val isRepeat by viewModel.isRepeat.collectAsState()
+
     Scaffold(
         topBar = {
             PlayerTopBar(
@@ -137,7 +144,7 @@ fun PlayerScreen(
 
             // Interactions Bar
             InteractionBar(
-                isFavourite = viewModel.isFavourite,
+                isFavourite = isFavourite,
                 onFavClick = { song?.let { viewModel.toggleFavourite(it) } },
                 onAddClick = {},
                 onDownloadClick = {},
@@ -155,8 +162,8 @@ fun PlayerScreen(
             // Control Buttons
             ControlBar(
                 isPlaying = isPlaying,
-                isShuffle = viewModel.isShuffle,
-                isRepeat = viewModel.isRepeat,
+                isShuffle = isShuffle,
+                isRepeat = isRepeat,
                 onShuffleClick = { viewModel.toggleShuffle() },
                 onPreviousClick = { viewModel.previousSong() },
                 onPlayPauseClick = { viewModel.togglePlayPause() },
