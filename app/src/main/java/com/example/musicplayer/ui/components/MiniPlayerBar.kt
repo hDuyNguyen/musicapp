@@ -24,7 +24,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.musicplayer.R
-import com.example.musicplayer.helper.AudioHelper
 import com.example.musicplayer.model.Song
 
 @Composable
@@ -50,7 +49,7 @@ fun MiniPlayerBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = AudioHelper.getAlbumArtUri(song.albumId),
+                model = song.albumArtUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 error = painterResource(R.drawable.music_icon),

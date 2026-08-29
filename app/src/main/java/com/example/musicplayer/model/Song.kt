@@ -8,7 +8,7 @@ data class Song(
     val id: Long,
     val title: String?,
     val artist: String?,
-    val albumId: Long,
-    val data: String?, // Path file
+    val albumArtUrl: String?,
+    val data: String?, // Local file path or remote stream URL
     val duration: Long
 ): Parcelable

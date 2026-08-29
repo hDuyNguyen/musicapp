@@ -18,6 +18,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.lifecycleScope
 import com.example.musicplayer.R
 import com.example.musicplayer.ui.theme.MusicplayerTheme
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -32,21 +33,26 @@ class SplashActivity : ComponentActivity() {
         setContent {
             MusicplayerTheme {
                 StartTheme {
-                    goToMainActivity()
+                    navigateNext()
                 }
             }
         }
 
         lifecycleScope.launch {
             delay(10000L)
-            goToMainActivity()
+            navigateNext()
         }
     }
 
-    private fun goToMainActivity() {
+    private fun navigateNext() {
         if (!isNavigated) {
             isNavigated = true
-            startActivity(Intent(this, MainActivity::class.java))
+            val target = if (FirebaseAuth.getInstance().currentUser != null) {
+                MainActivity::class.java
+            } else {
+                LoginActivity::class.java
+            }
+            startActivity(Intent(this, target))
             finish()
         }
     }

@@ -3,11 +3,18 @@ package com.example.musicplayer.ui.components
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.example.musicplayer.R
 import com.example.musicplayer.model.Song
 
 @Composable
@@ -19,22 +26,33 @@ fun SongItem(song: Song, onClick: () -> Unit) {
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = song.title ?: "Unknown Title",
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 1000)
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = song.albumArtUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                error = painterResource(R.drawable.music_icon),
+                fallback = painterResource(R.drawable.music_icon),
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(8.dp))
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = song.title ?: "Unknown Title",
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 1000)
+                )
                 Text(
                     text = song.artist ?: "Unknown Artist",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1
                 )
-                Text(text = "Album ID: ${song.albumId}", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -43,5 +61,5 @@ fun SongItem(song: Song, onClick: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun SongItemPreview() {
-    SongItem(Song(1, "Demo Song", "Artist Name", 1234, "", 200000)) {}
+    SongItem(Song(1, "Demo Song", "Artist Name", null, "", 200000)) {}
 }

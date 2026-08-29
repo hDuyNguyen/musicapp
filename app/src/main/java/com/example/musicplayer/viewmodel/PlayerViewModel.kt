@@ -1,19 +1,19 @@
 package com.example.musicplayer.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.musicplayer.data.FavouriteRepository
 import com.example.musicplayer.model.Song
 import com.example.musicplayer.service.MusicService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
-class PlayerViewModel : ViewModel() {
+class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
     private var musicService: MusicService? = null
 
-    // UI States sử dụng MutableState theo yêu cầu bài toán
     private val _isFavourite = MutableStateFlow(false)
     val isFavourite: StateFlow<Boolean> = _isFavourite
     private val _isShuffle = MutableStateFlow(false)
@@ -25,7 +25,15 @@ class PlayerViewModel : ViewModel() {
     val isPlaying: StateFlow<Boolean> = MusicService.isPlaying
     val currentPosition: StateFlow<Long> = MusicService.currentPosition
 
-    private val favouriteList = mutableListOf<Song>()
+    init {
+        // Favourite state is per-song now (backed by FavouriteRepository/ContentProvider), so it
+        // has to be re-checked every time the currently playing song changes.
+        viewModelScope.launch {
+            currentSong.collect { song ->
+                _isFavourite.value = song?.let { FavouriteRepository.isFavourite(getApplication(), it.id) } ?: false
+            }
+        }
+    }
 
     fun setService(service: MusicService) {
         this.musicService = service
@@ -37,8 +45,9 @@ class PlayerViewModel : ViewModel() {
     fun seekTo(pos: Long) = musicService?.seekTo(pos)
 
     fun toggleFavourite(song: Song) {
-        _isFavourite.value = !_isFavourite.value
-        if (_isFavourite.value) favouriteList.add(song) else favouriteList.remove(song)
+        viewModelScope.launch {
+            _isFavourite.value = FavouriteRepository.toggleFavourite(getApplication(), song)
+        }
     }
 
     fun toggleShuffle() {

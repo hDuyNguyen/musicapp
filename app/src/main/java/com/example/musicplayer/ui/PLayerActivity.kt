@@ -1,6 +1,7 @@
 package com.example.musicplayer.ui
 
 import android.annotation.SuppressLint
+import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
@@ -26,7 +27,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.example.musicplayer.helper.AudioHelper
 import com.example.musicplayer.model.Song
 import com.example.musicplayer.service.MusicService
 import com.example.musicplayer.ui.components.ControlBar
@@ -118,7 +118,7 @@ fun PlayerScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         // Blurred album art background, dimmed so foreground text/controls stay readable
         AsyncImage(
-            model = song?.let { AudioHelper.getAlbumArtUri(it.albumId) },
+            model = song?.albumArtUrl,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             error = painterResource(R.drawable.music_icon),
@@ -147,7 +147,7 @@ fun PlayerScreen(
             ) {
                 // Album Art
                 AsyncImage(
-                    model = song?.let { AudioHelper.getAlbumArtUri(it.albumId) },
+                    model = song?.albumArtUrl,
                     contentDescription = "Album Art",
                     contentScale = ContentScale.Crop,
                     error = painterResource(R.drawable.music_icon),
@@ -197,10 +197,10 @@ fun PlayerScreen(
 fun PlayerPreview() {
     MaterialTheme {
         PlayerScreen(
-            song = Song(1, "Bài hát demo", "Ca sĩ nghệ sĩ", 1L, "", 240000L),
+            song = Song(1, "Bài hát demo", "Ca sĩ nghệ sĩ", null, "", 240000L),
             isPlaying = true,
             currentPos = 60000L,
-            viewModel = PlayerViewModel(),
+            viewModel = PlayerViewModel(Application()),
             onBack = {}
         )
     }

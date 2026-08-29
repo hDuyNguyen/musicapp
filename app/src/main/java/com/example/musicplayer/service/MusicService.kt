@@ -6,15 +6,22 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
+import android.net.ConnectivityManager
 import android.os.Binder
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.example.musicplayer.data.FavouriteRepository
 import com.example.musicplayer.model.Song
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,6 +43,7 @@ class MusicService : Service() {
         val currentPlayingSong = MutableStateFlow<Song?>(null)
         val isPlaying = MutableStateFlow(false)
         val currentPosition = MutableStateFlow(0L)
+        val networkAvailable = MutableStateFlow(true)
     }
 
     val player: ExoPlayer
@@ -44,6 +52,14 @@ class MusicService : Service() {
     private var originalList: List<Song> = emptyList()
     private var currentList: List<Song> = emptyList()
     private var currentIndex: Int = 0
+
+    private val noisyAudioReceiver = NoisyAudioReceiver {
+        if (exoPlayerInstance?.isPlaying == true) exoPlayerInstance?.pause()
+    }
+    private val networkStatusReceiver = NetworkStatusReceiver { connected ->
+        networkAvailable.value = connected
+        if (!connected && exoPlayerInstance?.isPlaying == true) exoPlayerInstance?.pause()
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -54,6 +70,18 @@ class MusicService : Service() {
         }
         startForegroundService()
         setupPlayerListener()
+        registerReceivers()
+    }
+
+    private fun registerReceivers() {
+        ContextCompat.registerReceiver(
+            this, noisyAudioReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        ContextCompat.registerReceiver(
+            this, networkStatusReceiver, IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     inner class MusicBinder : Binder() {
@@ -95,6 +123,10 @@ class MusicService : Service() {
                 if (state == Player.STATE_ENDED) {
                     next()
                 }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                FirebaseCrashlytics.getInstance().recordException(error)
             }
         })
     }
@@ -144,6 +176,10 @@ class MusicService : Service() {
             player.prepare()
             player.play()
         }
+
+        serviceScope.launch(Dispatchers.IO) {
+            FavouriteRepository.addHistory(applicationContext, song)
+        }
     }
 
     fun togglePlayPause() {
@@ -190,9 +226,19 @@ class MusicService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopProgressTracker()
+        unregisterReceivers()
         serviceScope.cancel() // Giải phóng toàn bộ coroutines chạy ngầm
         exoPlayerInstance?.release()
         exoPlayerInstance = null
+    }
+
+    private fun unregisterReceivers() {
+        try {
+            unregisterReceiver(noisyAudioReceiver)
+            unregisterReceiver(networkStatusReceiver)
+        } catch (e: IllegalArgumentException) {
+            // Already unregistered (e.g. onTaskRemoved -> stopSelf() already triggered onDestroy())
+        }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
